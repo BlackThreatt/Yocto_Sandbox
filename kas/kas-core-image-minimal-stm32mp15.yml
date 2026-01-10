@@ -1,0 +1,18 @@
+header:
+  version: 14
+  includes:
+    - kas/include/common.yml
+
+machine: stm32mp15-disco
+target: core-image-minimal
+
+repos:
+  meta-sandbox-bsp:
+    path: meta-sandbox-bsp
+
+  meta-sandbox-distro:
+    path: meta-sandbox-distro
+
+  meta-sandbox-project:
+    path: meta-sandbox-project
+

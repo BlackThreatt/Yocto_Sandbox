@@ -1,0 +1,17 @@
+header:
+  version: 14
+
+repos:
+  meta-st-stm32mp:   
+    url: https://github.com/STMicroelectronics/meta-st-stm32mp.git
+    path: layers/meta-st-stm32mp
+    branch: scarthgap
+    commit: fae1c3bcad05f338da80e69fc150b8697ad874c5
+  meta-openembedded:
+    url: https://git.openembedded.org/meta-openembedded
+    path: layers/meta-openembedded
+    branch: scarthgap
+    commit: 2b26d30fc7f478f5735d514f0c1bc28f6a4148b6
+    layers:
+      meta-oe:
+      meta-python:
