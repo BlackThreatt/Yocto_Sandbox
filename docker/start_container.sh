@@ -1,6 +1,6 @@
 #!/bin/bash
 
-readonly WORK_DIR="$(dirname $(pwd))"
+readonly WORK_DIR="$(realpath $(dirname "$0")/..)"
 readonly SHARED_YOCTO_LOCATION="${3}"
 readonly VENV_DIR="${WORK_DIR}/kas_venv"
 
@@ -74,6 +74,8 @@ main() {
 		[[ -d "${SHARED_YOCTO_LOCATION}/${dir}" ]] || error "Missing ${dir} directory under ${SHARED_YOCTO_LOCATION}"
 	done
 	
+	export KAS_WORK_DIR=${WORK_DIR}
+
 	do_kas $1 $2
 }
 

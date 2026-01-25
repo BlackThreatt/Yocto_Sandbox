@@ -16,3 +16,14 @@ local_conf_header:
         HALT,/tmp,10M,1K"
   eula: |
     ACCEPT_EULA_stm32mp1 = "1"
+  yocto_environment_config: |
+    DL_DIR = "/YoctoShare/downloads"
+    SSTATE_DIR = "/YoctoShare/sstate-cache"
+    BUILDDIR = "/work/build"
+    TMPDIR = "/work/build/tmp"
+    BBLAYERS_FETCH_DIR = "/work/layers"
+  build_history: |
+    INHERIT += "buildhistory"
+    BUILDHISTORY_DIR = "/work/build/build-history"
+  image_build_info: |
+    INHERIT += "image-buildinfo"
