@@ -5,4 +5,4 @@ header:
     - kas/include/oe.yml
     - kas/include/stm32mp.yml
 
-distro: nodistro
+distro: sandbox

@@ -43,6 +43,12 @@ Yocto_Sandbox/
 
 [Milestone-01 notes](docs/milestones/milestone-01.md)
 
+### Milestone 2: Custom Distribution Layer
+
+**Status**: In Progress
+
+[Milestone-02 notes](docs/milestones/milestone-02.md)
+
 ## Target
 
 - STM32MP157C-DK2
@@ -65,10 +71,11 @@ USAGE: ./start_container.sh checkout|build|shell YAML_FILE SHARED_YOCTO_LOCATION
 
 **Notes:**
 
-- ```YAML_FILE``` specifies the KAS configuration to use.
-- ```SHARED_YOCTO_LOCATION``` is a shared directory for downloads and sstate cache to speed up builds across runs.
+- `YAML_FILE` specifies the KAS configuration to use.
+- `SHARED_YOCTO_LOCATION` is a shared directory for downloads and sstate cache to speed up builds across runs.
 
 **Example**
+
 The following example builds the image using a KAS configuration file and a shared Yocto download/cache directory:
 
 ```bash

@@ -6,8 +6,8 @@ Establish a portable and reproducible Yocto Project environment that eliminates 
 ## Target Hardware
 - SoC: STM32MP157C
 - Board: STM32MP157C-DK2 (not yet flashed in this milestone)
-- Bootloader: N/A (handled in later milestones)
-- Storage: N/A
+- Bootloader: U-Boot (handled in later milestones)
+- Storage: SD-Card
 
 ## Yocto Context
 - Yocto Release: scarthgap
@@ -17,7 +17,7 @@ Establish a portable and reproducible Yocto Project environment that eliminates 
 - BSP Layer: meta-st-stm32mp
 - Target Image: core-image-minimal
 
-## Issues Covered
+## Tasks Covered
 - [x] Create project repository structure
 - [x] Add script to create Docker-based Yocto build environment
 - [x] Create initial KAS YAML configuration
