@@ -22,8 +22,5 @@ local_conf_header:
     BUILDDIR = "/work/build"
     TMPDIR = "/work/build/tmp"
     BBLAYERS_FETCH_DIR = "/work/layers"
-  build_history: |
-    INHERIT += "buildhistory"
-    BUILDHISTORY_DIR = "/work/build/build-history"
-  image_build_info: |
-    INHERIT += "image-buildinfo"
+  build_type: |
+    BUILD_TYPE = "dev"

@@ -45,7 +45,7 @@ Yocto_Sandbox/
 
 ### Milestone 2: Custom Distribution Layer
 
-**Status**: In Progress
+**Status**: Completed
 
 [Milestone-02 notes](docs/milestones/milestone-02.md)
 

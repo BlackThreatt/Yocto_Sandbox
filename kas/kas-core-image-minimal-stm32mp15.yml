@@ -16,3 +16,6 @@ repos:
   meta-sandbox-project:
     path: meta-sandbox-project
 
+env:
+  INITM: "systemd"
+  PKG_EXCLUDE: " "
