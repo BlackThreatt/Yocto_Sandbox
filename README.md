@@ -49,6 +49,12 @@ Yocto_Sandbox/
 
 [Milestone-02 notes](docs/milestones/milestone-02.md)
 
+### Milestone 3: BSP & Machine Control
+
+**Status**: In Progress
+
+[Milestone 3 Notes](docs/milestones/milestone-03.md)
+
 ## Target
 
 - STM32MP157C-DK2
