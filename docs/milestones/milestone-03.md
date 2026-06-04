@@ -13,7 +13,7 @@ Describe and control all hardware behavior through Yocto metadata only.
 - [x] Select bootloader strategy (U-Boot / vendor)
 - [x] Integrate bootloader recipe
 - [x] Apply bootloader configuration fragments
-- [x] Disable unused bootloader features
+- [ ] Disable unused bootloader features
 - [ ] Validate bootloader deployment artifacts
 - [ ] Select kernel source strategy (vendor / mainline / custom)
 - [ ] Integrate custom kernel recipe
@@ -139,90 +139,69 @@ PREFERRED_PROVIDER_virtual/bootloader = "u-boot-stm32mp"
 
 ### Integrate bootloader recipe
 
-The ST-provided bootloader recipe is already integrated without modification. In order to adjust it to the needs of this project, I created the the following structure and a .bbappend file under meta-sandbox-bsp directory.
+The ST-provided bootloader recipe is already integrated without modification. In order to adjust it to the needs of this project, i need to append to `u-boot` and `tf-a` recipes to control fragments, config and deploy behavior without touching the ST layer. To achieve that, I created the the following structure and a .bbappend file under meta-sandbox-bsp directory.
 ```bash
 meta-sandbox-bsp/
 └── recipes-bsp/
+    ├── trusted-firmware-a/
+    │   └── tf-a-stm32mp_%.bbappend
     └── u-boot/
         └── u-boot-stm32mp_%.bbappend
 ```
-This preserves vendor updates while allowing controlled customization.
+For now, I'll keep them minimal by prepending FILESEXTRAPATHS variable so that they're ready to accept fragments modifications.
+
+```bitbake
+# meta-sandbox-bsp/recipes-bsp/trusted-firmware-a/tf-a-stm32mp_%.bbappend
+
+FILESEXTRAPATHS:prepend := "${THISDIR}:"
+```
+```bitbake
+# meta-sandbox-bsp/recipes-bsp/u-boot/u-boot-stm32mp_%.bbappend
+
+FILESEXTRAPATHS:prepend := "${THISDIR}/fragments:"
+```
+This preserves vendor updates while allowing controlled customization. To verify if the recipes are visible to BitBake:
+```bash
+bitbake-layers show-appends | grep -E "tf-a-stm32mp|u-boot-stm32mp"
+```
+Doing so return the following the output:
+![alt text](../assets/bootloader_recipe_appends.png)
+This confirms that recipe appends are visible to Bitbake and customizations will be taken into account.
 
 ### Apply bootloader configuration fragments
 
-Bootloader configuration is customized using configuration fragments rather than modifying vendor defconfigs directly. First, I started by creating a defconfig fragment config file under `u-boot/files` named `sandbox_defconfig_fragment.cfg`:
+Bootloader configuration is customized using configuration fragments rather than modifying vendor defconfigs directly.
+
+**U-Boot fragments**
+
+First, I started by creating a defconfig fragment config file under `u-boot/fragments` named `sandbox-uboot.cfg`:
 
 ```
-meta-sandbox-bsp/recipes-bsp/u-boot/files/sandbox_defconfig_fragment.cfg
+meta-sandbox-bsp/recipes-bsp/u-boot/fragments/sandbox-uboot.cfg
 ```
-Before going in-depth on what to disable, i added only one modification to bootloader config to test whether the changes were affected post baking or not.
+Before going in-depth on what to disable, i added only one modification to bootloader config to test whether the changes were affected post baking or not. As a start, I enabled SD-card and eMMC options.
 ```cfg
-CONFIG_CMD_PCI=y
+CONFIG_MMC=y
+CONFIG_CMD_MMC=y
 ```
-Next, to render the fragment file visible, I referenced it in the `.bbappend` by adding the path to `files` directory, appending the local fragment file to `SRC_URI` variable and appending the fragment file to the `UBOOT_CONFIG_FRAGMENT` so it is seen. These three commands are mentioned below:
+Next, to render the fragment file visible, I referenced it in the `.bbappend` by adding the path to `fragments` directory, appending the local fragment file to `SRC_URI` variable and appending the fragment file to the `UBOOT_CONFIG_FRAGMENT` so it is seen. These three commands are mentioned below:
 ```bitbake
-FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
-SRC_URI += "file://sandbox_defconfig_fragment.cfg"
-UBOOT_CONFIG_FRAGMENT += "sandbox_defconfig_fragment.cfg"
-```
-Now, It is time to validate the changes, build and see if the changes the work done is correct and affected u-boot manufacturer config or not. And thankfully, as can be seen in the screenshot below, it was! Now i can move one and research the features i need only and disabling the rest
+SRC_URI:append:sandbox-stm32mp25 = "file://sandbox-uboot.cfg"
 
+UBOOT_CONFIG_FRAGMENT:append:sandbox-stm32mp25 = "sandbox-uboot.cfg"
+```
+
+**TF-A**
+Upon searching, TF-A on STM32MP2 doesn't use Kconfig fragments. Instead you control its build through BitBake variable `TF_A_EXTRA_OE_MAKE_ARGS` that feed into the make invocations. I will leave this as is for now until I see the need to change it.
+
+Now, It is time to validate the changes. First, I will start by building u-boot-stm32mp using the following command:
+```bash
+bitbake u-boot-stm32mp -c configure
+```
+Then, I need to inspect the generated defconfig and search for the customization I applied earlier. In most cases, it is found under the following directory.
+```bash
+cat tmp-glibc/work/sandbox_stm32mp25-oe-linux/u-boot-stm32mp/v2023.10-stm32mp-r2/build/stm32mp25_defconfig/.config | grep -E "CONFIG_MMC=y|CONFIG_CMD_MMC=y"
+```
+And thankfully, as can be seen in the screenshot below, the changes were affected successfully! Now, i can move on and research the features i need only and disabling the rest.
 ![bootloader fragment test](../assets/defconfig_fragment.png)
 
-### Disable unused bootloader features
-
-The philosophy behind this is simple, as long as i'm not using it now, I disable it. this saves bootloader size and limits the flexibility provided by default.
-Currently, this is the list of features disabled:
-```cfg
-#
-# Disable Networking, will re-enable it later to test it
-#
-CONFIG_NET=n
-CONFIG_CMD_NET=n
-CONFIG_CMD_DHCP=n
-CONFIG_CMD_PING=n
-CONFIG_CMD_NFS=n
-CONFIG_CMD_TFTPBOOT=n
-CONFIG_CMD_WGET=n
-
-#
-# Disable Ethernet PHY and drivers
-#
-CONFIG_PHYLIB=n
-CONFIG_DM_ETH=n
-
-#
-# Disable unused filesystems, keeping FAT for SD-Card
-#
-NFIG_CMD_EXT4=n
-CONFIG_CMD_EXT2=n
-CONFIG_FS_EXT4=y
-
-#
-# Disable USB Storage and keeping only Serial communication
-#
-CONFIG_USB=n
-CONFIG_DM_USB=n
-CONFIG_DM_USB_GADGET=n
-CONFIG_USB_STORAGE=n
-CONFIG_CMD_USB=n
-
-#
-# Disable Display and graphics for a headless system
-#
-CONFIG_DM_VIDEO=n
-CONFIG_VIDEO=n
-CONFIG_LCD=n
-CONFIG_CMD_BMP=n
-CONFIG_SPLASH_SCREEN=n
-
-#
-# Disable compression algorithms
-#
-CONFIG_LZO=n
-CONFIG_LZMA=n
-CONFIG_GZIP=n
-CONFIG_BZIP2=n
-```
-
-### Validate bootloader deployment artifacts

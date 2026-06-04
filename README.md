@@ -58,13 +58,14 @@ Yocto_Sandbox/
 ## Target
 
 - STM32MP157C-DK2
+- STM32MP257F-DK
 
 ## Build Instructions
 
 To build this project, first clone the repository and enter the project directory:
 
 ```bash
-git clone https://github.com/BlackThreatt/Yocto_Sandbox.git 
+git clone https://github.com/BlackThreatt/Yocto_Sandbox.git
 cd Yocto_Sandbox
 ```
 
@@ -85,5 +86,5 @@ USAGE: ./start_container.sh checkout|build|shell YAML_FILE SHARED_YOCTO_LOCATION
 The following example builds the image using a KAS configuration file and a shared Yocto download/cache directory:
 
 ```bash
-./start_container.sh build ../kas/kas-core-image-minimal-stm32mp15.yml /path/to/shared/yocto/location
+./start_container.sh build ../kas/kas-core-image-minimal-stm32mp(15/25).yml /path/to/shared/yocto/location
 ```

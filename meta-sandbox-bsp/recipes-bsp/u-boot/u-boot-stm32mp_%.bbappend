@@ -1,3 +1,7 @@
-FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
-SRC_URI += "file://sandbox_defconfig_fragment.cfg"
-UBOOT_CONFIG_FRAGMENT += "sandbox_defconfig_fragment.cfg"
+FILESEXTRAPATHS:prepend := "${THISDIR}/fragments:"
+
+SRC_URI:append:sandbox-stm32mp25 = " \
+    file://sandbox-uboot.cfg \
+"
+
+UBOOT_CONFIG_FRAGMENT:append:sandbox-stm32mp25 = "sandbox-uboot.cfg"
