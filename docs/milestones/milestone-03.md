@@ -11,9 +11,9 @@ Describe and control all hardware behavior through Yocto metadata only.
 - [x] Define CPU, FPU, and tuning variables
 - [x] Validate MACHINE selection via override
 - [x] Select bootloader strategy (U-Boot / vendor)
-- [ ] Integrate bootloader recipe
-- [ ] Apply bootloader configuration fragments
-- [ ] Disable unused bootloader features
+- [x] Integrate bootloader recipe
+- [x] Apply bootloader configuration fragments
+- [x] Disable unused bootloader features
 - [ ] Validate bootloader deployment artifacts
 - [ ] Select kernel source strategy (vendor / mainline / custom)
 - [ ] Integrate custom kernel recipe
@@ -82,7 +82,7 @@ BBFILE_PRIORITY_meta-sandbox-bsp = "7"
 
 To define a custom machine, a configuration file was created in the following directory
 `meta-sandbox-bsp/conf/machine/sandbox-stm32mp15.conf`. To preserve ST's baseline and allow controlled overrides, the following line must be added at the top of the configuration file created earlier.
-```bitbake 
+```bitbake
 require conf/machine/stm32mp15-disco.conf
 ```
 This way, the newly created machine uses ST's configuration by default unless overwritten.
@@ -90,34 +90,139 @@ This way, the newly created machine uses ST's configuration by default unless ov
 ### Define Machine Overrides Correctly
 
 Adding a machine override is essential as it allows for board-specific tuning from now on.
-```bitbake 
+```bitbake
 MACHINEOVERRIDES =. "sandbox:"
 ```
 Doing so, I am now able to do something like this:
 ```bitbake
 VARIABLE:sandbox = "value"
 ```
+
 ### Define CPU, FPU, and Tuning Variables
+
 Tuning variables that are provided by ST are already verified and align with STM32MP.
 To get the list of default tuning variables, this command must be executed:
 ```bash
-bitbake-getvar DEFAULTTUNE 
+bitbake-getvar DEFAULTTUNE
 ```
 ![alt text](../assets/default-tune.png)
 
+### Narrow BOOTSCHEME_LABELS and BOOTDEVICE_LABELS
+The ST defaults enable every possible combination (emmc, nand, nor, sdcard, etc.), which causes the build to generate a huge matrix of FlashLayout files. In this project's case, the application will boot only from SD card with OP-TEE, the other boot options can be disabled for now.
+```bitbake
+BOOTSCHEME_LABELS = "optee"
+BOOTDEVICE_LABELS = "sdcard"
+```
+
 ### Validate MACHINE Selection via Override
+
 To validate that the custom machine is correctly selected and that overrides are applied as expected:
 ```bash
-bitbake-getvar MACHINE 
+bitbake-getvar MACHINE
 ```
 ![alt text](../assets/machine-valid.png)
 
 ### Select Bootloader Strategy (Vendor U-Boot)
-STM32MP uses the following boot chain:
+
+STM32MP157 uses the following boot chain:
 ```code
 ROM => TF-A => U-Boot => Linux => RootFS
+```
+STM32MP257 uses the following boot chain:
+```code
+ROM → TF-A (BL2) → FIP → { OP-TEE (BL32) + TF-M + U-Boot (BL33) } → Linux
 ```
 The vendor-provided U-Boot and TF-A are retained to ensure hardware compatibility and stability. The bootloader provider is explicitly set inside the machine configuration provided by ST:
 ```bitbake
 PREFERRED_PROVIDER_virtual/bootloader = "u-boot-stm32mp"
 ```
+
+### Integrate bootloader recipe
+
+The ST-provided bootloader recipe is already integrated without modification. In order to adjust it to the needs of this project, I created the the following structure and a .bbappend file under meta-sandbox-bsp directory.
+```bash
+meta-sandbox-bsp/
+└── recipes-bsp/
+    └── u-boot/
+        └── u-boot-stm32mp_%.bbappend
+```
+This preserves vendor updates while allowing controlled customization.
+
+### Apply bootloader configuration fragments
+
+Bootloader configuration is customized using configuration fragments rather than modifying vendor defconfigs directly. First, I started by creating a defconfig fragment config file under `u-boot/files` named `sandbox_defconfig_fragment.cfg`:
+
+```
+meta-sandbox-bsp/recipes-bsp/u-boot/files/sandbox_defconfig_fragment.cfg
+```
+Before going in-depth on what to disable, i added only one modification to bootloader config to test whether the changes were affected post baking or not.
+```cfg
+CONFIG_CMD_PCI=y
+```
+Next, to render the fragment file visible, I referenced it in the `.bbappend` by adding the path to `files` directory, appending the local fragment file to `SRC_URI` variable and appending the fragment file to the `UBOOT_CONFIG_FRAGMENT` so it is seen. These three commands are mentioned below:
+```bitbake
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+SRC_URI += "file://sandbox_defconfig_fragment.cfg"
+UBOOT_CONFIG_FRAGMENT += "sandbox_defconfig_fragment.cfg"
+```
+Now, It is time to validate the changes, build and see if the changes the work done is correct and affected u-boot manufacturer config or not. And thankfully, as can be seen in the screenshot below, it was! Now i can move one and research the features i need only and disabling the rest
+
+![bootloader fragment test](../assets/defconfig_fragment.png)
+
+### Disable unused bootloader features
+
+The philosophy behind this is simple, as long as i'm not using it now, I disable it. this saves bootloader size and limits the flexibility provided by default.
+Currently, this is the list of features disabled:
+```cfg
+#
+# Disable Networking, will re-enable it later to test it
+#
+CONFIG_NET=n
+CONFIG_CMD_NET=n
+CONFIG_CMD_DHCP=n
+CONFIG_CMD_PING=n
+CONFIG_CMD_NFS=n
+CONFIG_CMD_TFTPBOOT=n
+CONFIG_CMD_WGET=n
+
+#
+# Disable Ethernet PHY and drivers
+#
+CONFIG_PHYLIB=n
+CONFIG_DM_ETH=n
+
+#
+# Disable unused filesystems, keeping FAT for SD-Card
+#
+NFIG_CMD_EXT4=n
+CONFIG_CMD_EXT2=n
+CONFIG_FS_EXT4=y
+
+#
+# Disable USB Storage and keeping only Serial communication
+#
+CONFIG_USB=n
+CONFIG_DM_USB=n
+CONFIG_DM_USB_GADGET=n
+CONFIG_USB_STORAGE=n
+CONFIG_CMD_USB=n
+
+#
+# Disable Display and graphics for a headless system
+#
+CONFIG_DM_VIDEO=n
+CONFIG_VIDEO=n
+CONFIG_LCD=n
+CONFIG_CMD_BMP=n
+CONFIG_SPLASH_SCREEN=n
+
+#
+# Disable compression algorithms
+#
+CONFIG_LZO=n
+CONFIG_LZMA=n
+CONFIG_GZIP=n
+CONFIG_BZIP2=n
+```
+
+### Validate bootloader deployment artifacts

@@ -1,5 +1,5 @@
 ## [v2.0] - Milestone 2: Custom Distribution Layer
-**Status:** Completed  
+**Status:** Completed
 **Date:** 2026-01-31
 
 ### Added

@@ -1,6 +1,6 @@
 header:
   version: 14
-    
+
 local_conf_header:
   standard: |
     CONF_VERSION = "2"
@@ -15,7 +15,7 @@ local_conf_header:
         HALT,${SSTATE_DIR},100M,1K \
         HALT,/tmp,10M,1K"
   eula: |  # CHANGED
-    ACCEPT_EULA_stm32mp1 = "0" 
+    ACCEPT_EULA_stm32mp25-disco = "0" # TODO: Make it dynamic according to MACHINE used
   yocto_environment_config: |
     DL_DIR = "/YoctoShare/downloads"
     SSTATE_DIR = "/YoctoShare/sstate-cache"

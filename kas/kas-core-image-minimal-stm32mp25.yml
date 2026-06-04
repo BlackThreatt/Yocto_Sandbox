@@ -3,7 +3,7 @@ header:
   includes:
     - kas/include/common.yml
 
-machine: stm32mp15-disco
+machine: stm32mp25-disco
 target: core-image-minimal
 
 repos:

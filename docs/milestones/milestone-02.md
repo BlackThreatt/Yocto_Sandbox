@@ -30,7 +30,7 @@ Design and implement a custom Yocto distribution that fully controls system-wide
 
 ### Create Custom Distro Layer
 The custom distro layer is created from inside the KAS build shell using the standard BitBake helper:
-```bash 
+```bash
 bitbake-layers create-layer meta-sandbox-distro
 ```
 Since this command is executed inside a Docker container, any newly created layers will initially appear relative to the working directory inside the container. To keep the project structure consistent and aligned with the repository layout defined earlier, the default Yocto working directories must be overridden.
@@ -61,8 +61,8 @@ At this point, the custom distro layer is fully integrated and ready to host sys
 The default distro feature set includes support for many features that are not required for this project. Leaving them enabled would introduce unnecessary dependencies and increase image size.
 To avoid this, the feature set is explicitly sanitized by removing unused features:
 ```bash
-DISTRO_FEATURES:remove = "alsa bluetooth debuginfod pcmcia usbgadget pci 3g nfc x11 pulseaudio"
-DISTRO_FEATURES_DEFAULT:remove = "alsa bluetooth debuginfod pcmcia usbgadget pci 3g nfc x11 pulseaudio"
+DISTRO_FEATURES:remove = "alsa bluetooth debuginfod wifi ipv6 debuginfod pcmcia usbgadget pci 3g nfc x11 pulseaudio"
+DISTRO_FEATURES_DEFAULT:remove = "alsa bluetooth debuginfod wifi ipv6 debuginfod pcmcia usbgadget pci 3g nfc x11 pulseaudio"
 ```
 This ensures that only intentionally selected features influence package configuration and dependency resolution.
 
@@ -70,7 +70,7 @@ This ensures that only intentionally selected features influence package configu
 The effective feature set is validated from within the KAS shell to confirm that the configuration is applied correctly:
 ![Distro features validation](../assets/kas-shell.png)
 
-### Controlling Init System  
+### Controlling Init System
 The init system is selected using an environment variable exposed to BitBake and injected via the KAS configuration. This allows switching between init systems without modifying images, BSP metadata, or recipes.
 
 In the KAS YAML configuration file:
@@ -138,10 +138,10 @@ This ensures vulnerability information is generated automatically during builds 
 For a production-oriented project, licensing constraints must be enforced early. Packages licensed under GPLv3 or LGPLv3 impose obligations that may not align with commercial or closed deployments.
 
 To avoid this risk, incompatible licenses are excluded globally:
-```bash 
+```bash
 INCOMPATIBLE_LICENSE = "GPL-3.0* LGPL-3.0*"
 ```
-To maintain full traceability, license manifest generation is also enabled: 
+To maintain full traceability, license manifest generation is also enabled:
 ```bash
 INHERIT += "license"
 ```
