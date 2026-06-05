@@ -13,8 +13,8 @@ Describe and control all hardware behavior through Yocto metadata only.
 - [x] Select bootloader strategy (U-Boot / vendor)
 - [x] Integrate bootloader recipe
 - [x] Apply bootloader configuration fragments
-- [ ] Disable unused bootloader features
-- [ ] Validate bootloader deployment artifacts
+- [x] Disable unused bootloader features
+- [x] Validate bootloader deployment artifacts
 - [ ] Select kernel source strategy (vendor / mainline / custom)
 - [ ] Integrate custom kernel recipe
 - [ ] Pin kernel version explicitly
@@ -205,3 +205,47 @@ cat tmp-glibc/work/sandbox_stm32mp25-oe-linux/u-boot-stm32mp/v2023.10-stm32mp-r2
 And thankfully, as can be seen in the screenshot below, the changes were affected successfully! Now, i can move on and research the features i need only and disabling the rest.
 ![bootloader fragment test](../assets/defconfig_fragment.png)
 
+### Disable unused bootloader features
+
+The philosophy behind this is simple, as long as i'm not using it now, I disable it. this saves bootloader size and limits the flexibility provided by default. With that in my mind, disabling unused features can be done through two mechanisms, first method is through fragment customization handled during compilation and the second by scoping `BOOTDEVICE_LABLES` to include only needed artifacts for storage devices used. I already applied the latter method earlier in this guide and this is the result:
+
+![alt text](../assets/fip_config.png)
+![alt text](../assets/tf-a-config.png)
+
+Currently, this is the list of features disabled which will be updated further in the project:
+```cfg
+# Disable unused storage drivers
+# CONFIG_MTD_RAW_NAND is not set
+# CONFIG_SPI_FLASH_MACRONIX is not set
+# CONFIG_SPI_FLASH_WINBOND is not set
+
+# Disable unused networking
+# CONFIG_CMD_TFTPBOOT is not set
+
+# Keep SD card and eMMC
+CONFIG_MMC=y
+CONFIG_CMD_MMC=y
+
+```
+
+### Validate bootloader deployment artifacts
+
+After successful completion of build, artifacts can be checked under `tmp-glibc/deploy/images/sandbox-stm32mp25/` directory.
+**TF-A artifacts:**
+
+tf-a-stm32mp257f-dk-optee-sdcard.stm32: BL2 binary loaded by ROM
+metadata.bin: required for firmware update (fw-update feature is on by default)
+
+![alt text](../assets/tf-a_build_artifact.png)
+
+**FIP artifacts (this is the new concept vs MP1):**
+
+fip-stm32mp257f-dk-optee-sdcard.bin: the bundled BL32+BL33 image
+
+![alt text](../assets/fip_build_artifact.png)
+
+**FlashLayout file:**
+
+flashlayout_core-image-minimal/optee/FlashLayout_sdcard_stm32mp257f-dk2-optee.tsv
+
+![alt text](../assets/flashlayout_build_artifact.png)
