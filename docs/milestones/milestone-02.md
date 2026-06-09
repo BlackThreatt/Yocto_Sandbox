@@ -59,10 +59,20 @@ At this point, the custom distro layer is fully integrated and ready to host sys
 
 ### Define and Sanitize `DISTRO_FEATURES`
 The default distro feature set includes support for many features that are not required for this project. Leaving them enabled would introduce unnecessary dependencies and increase image size.
-To avoid this, the feature set is explicitly sanitized by removing unused features:
-```bash
-DISTRO_FEATURES:remove = "alsa bluetooth debuginfod wifi ipv6 debuginfod pcmcia usbgadget pci 3g nfc x11 pulseaudio"
-DISTRO_FEATURES_DEFAULT:remove = "alsa bluetooth debuginfod wifi ipv6 debuginfod pcmcia usbgadget pci 3g nfc x11 pulseaudio"
+To avoid this, the feature set is explicitly sanitized by keeping it minimal:
+```bitbake
+DISTRO_FEATURES = "\ 
+    ext2 \      # rootfs is ext4 (ext4 implies ext2 support in kernel)
+    usbhost \   # DK2 has USB-A host port, also needed for STM32CubeProgrammer USB DFU path
+    vfat \      # boot partition is FAT as U-Boot and the FlashLayout depend on it
+    systemd     # init manager
+    pam \       # required by systemd and login
+    seccomp \   # required by systemd on MP2 kernel config
+    usrmerge \  # required by systemd on scarthgap
+    ipv4 \      # basic networking
+    ipv6 \ 
+    
+"
 ```
 This ensures that only intentionally selected features influence package configuration and dependency resolution.
 

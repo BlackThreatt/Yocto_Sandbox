@@ -15,11 +15,11 @@ Describe and control all hardware behavior through Yocto metadata only.
 - [x] Apply bootloader configuration fragments
 - [x] Disable unused bootloader features
 - [x] Validate bootloader deployment artifacts
-- [ ] Select kernel source strategy (vendor / mainline / custom)
-- [ ] Integrate custom kernel recipe
-- [ ] Pin kernel version explicitly
-- [ ] Apply kernel configuration fragments
-- [ ] Validate fragment application order
+- [x] Select kernel source strategy (vendor / mainline / custom)
+- [x] Pin kernel version explicitly
+- [x] Integrate custom kernel recipe
+- [x] Apply kernel configuration fragments
+- [x] Validate fragment application order
 - [ ] Remove unnecessary kernel options
 - [ ] Remove kernel image from root filesystem
 - [ ] Integrate base device tree
@@ -144,8 +144,10 @@ The ST-provided bootloader recipe is already integrated without modification. In
 meta-sandbox-bsp/
 └── recipes-bsp/
     ├── trusted-firmware-a/
+    │   ├── tf-a-stm32mp/
     │   └── tf-a-stm32mp_%.bbappend
     └── u-boot/
+        ├── u-boot-stm32mp/
         └── u-boot-stm32mp_%.bbappend
 ```
 For now, I'll keep them minimal by prepending FILESEXTRAPATHS variable so that they're ready to accept fragments modifications.
@@ -153,14 +155,15 @@ For now, I'll keep them minimal by prepending FILESEXTRAPATHS variable so that t
 ```bitbake
 # meta-sandbox-bsp/recipes-bsp/trusted-firmware-a/tf-a-stm32mp_%.bbappend
 
-FILESEXTRAPATHS:prepend := "${THISDIR}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}:${PN}"
 ```
 ```bitbake
 # meta-sandbox-bsp/recipes-bsp/u-boot/u-boot-stm32mp_%.bbappend
 
-FILESEXTRAPATHS:prepend := "${THISDIR}/fragments:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 ```
-This preserves vendor updates while allowing controlled customization. To verify if the recipes are visible to BitBake:
+This preserves vendor updates while allowing controlled customization. 
+To verify if the recipes are visible to BitBake:
 ```bash
 bitbake-layers show-appends | grep -E "tf-a-stm32mp|u-boot-stm32mp"
 ```
@@ -174,21 +177,23 @@ Bootloader configuration is customized using configuration fragments rather than
 
 **U-Boot fragments**
 
-First, I started by creating a defconfig fragment config file under `u-boot/fragments` named `sandbox-uboot.cfg`:
-
-```
-meta-sandbox-bsp/recipes-bsp/u-boot/fragments/sandbox-uboot.cfg
+First, I started by creating a defconfig fragment config file named `sandbox-uboot.cfg` under `u-boot-stm32mp/`:
+```bash
+u-boot/
+    ├── u-boot-stm32mp/
+    │   └── sandbox-uboot.cfg
+    └── u-boot-stm32mp_%.bbappend
 ```
 Before going in-depth on what to disable, i added only one modification to bootloader config to test whether the changes were affected post baking or not. As a start, I enabled SD-card and eMMC options.
 ```cfg
 CONFIG_MMC=y
 CONFIG_CMD_MMC=y
 ```
-Next, to render the fragment file visible, I referenced it in the `.bbappend` by adding the path to `fragments` directory, appending the local fragment file to `SRC_URI` variable and appending the fragment file to the `UBOOT_CONFIG_FRAGMENT` so it is seen. These three commands are mentioned below:
+Next, to make the fragment file visible to bitbake, I appended it to `SRC_URI` and `UBOOT_CONFIG_FRAGMENT` variables as can be seen below:
 ```bitbake
-SRC_URI:append:sandbox-stm32mp25 = "file://sandbox-uboot.cfg"
+SRC_URI:append:sandbox-stm32mp25 = " file://sandbox-uboot.cfg;subdir=fragments "
 
-UBOOT_CONFIG_FRAGMENT:append:sandbox-stm32mp25 = "sandbox-uboot.cfg"
+UBOOT_CONFIG_FRAGMENT:append:sandbox-stm32mp25 = " ${WORKDIR}/fragments/sandbox-uboot.cfg "
 ```
 
 **TF-A**
@@ -196,14 +201,15 @@ Upon searching, TF-A on STM32MP2 doesn't use Kconfig fragments. Instead you cont
 
 Now, It is time to validate the changes. First, I will start by building u-boot-stm32mp using the following command:
 ```bash
-bitbake u-boot-stm32mp -c configure
+bitbake u-boot-stm32mp
 ```
 Then, I need to inspect the generated defconfig and search for the customization I applied earlier. In most cases, it is found under the following directory.
 ```bash
 cat tmp-glibc/work/sandbox_stm32mp25-oe-linux/u-boot-stm32mp/v2023.10-stm32mp-r2/build/stm32mp25_defconfig/.config | grep -E "CONFIG_MMC=y|CONFIG_CMD_MMC=y"
 ```
-And thankfully, as can be seen in the screenshot below, the changes were affected successfully! Now, i can move on and research the features i need only and disabling the rest.
+And thankfully, as can be seen in the screenshot below, the changes were affected successfully! 
 ![bootloader fragment test](../assets/defconfig_fragment.png)
+Now, I can move on to the next step; researching the features I need to keep disabling the rest.
 
 ### Disable unused bootloader features
 
@@ -218,9 +224,6 @@ Currently, this is the list of features disabled which will be updated further i
 # CONFIG_MTD_RAW_NAND is not set
 # CONFIG_SPI_FLASH_MACRONIX is not set
 # CONFIG_SPI_FLASH_WINBOND is not set
-
-# Disable unused networking
-# CONFIG_CMD_TFTPBOOT is not set
 
 # Keep SD card and eMMC
 CONFIG_MMC=y
@@ -249,3 +252,77 @@ fip-stm32mp257f-dk-optee-sdcard.bin: the bundled BL32+BL33 image
 flashlayout_core-image-minimal/optee/FlashLayout_sdcard_stm32mp257f-dk2-optee.tsv
 
 ![alt text](../assets/flashlayout_build_artifact.png)
+
+### Select kernel source strategy (vendor / mainline / custom) + Pin kernel version
+
+As stated in the task name, three possible ways to choose from: vendor provided kernel, maineline or custom. In my case I decided to go with kernel provided by ST to reduce the complexity of this project and maybe tackle the other options in the future. After choosing so, all I need to do is to check what version ST's scarthgap layer currently ships:
+```bash
+bitbake-layers show-recipes linux-stm32mp
+```
+![alt text](../assets/ST-kernel-version.png)
+and lock the preferred provider and version in my machine conf.
+
+```bitbake
+# meta-sandbox-bsp/conf/machine/sandbox-stm32mp25.conf
+
+PREFERRED_PROVIDER_virtual/kernel = "linux-stm32mp"
+PREFERRED_VERSION_linux-stm32mp = "6.6.78-stm32mp-r2"
+```
+
+### Integrate custom kernel recipe
+
+Same pattern as U-Boot, all I need to do is append to the recipe by creating the following directory tree and bbappend file that mirror the one used by meta-st layer.
+```bash
+meta-sandbox-bsp/recipes-kernel/linux/
+├── linux-stm32mp/
+│   └── 6.6/
+└── linux-stm32mp_%.bbappend
+```
+```bitbake
+# meta-sandbox-bsp/recipes-kernel/linux/linux-stm32mp_%.bbappend
+
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
+```
+Create the kernel fragment:
+```bash
+meta-sandbox-bsp/recipes-kernel/linux/linux-stm32mp/6.6
+└── sandbox-kernel.config
+    
+```
+Same thing with kernel fragment, I referenced the file by appending it to SRC_URI and KERNEL_CONFIG_FRAGMENTS variables.
+
+```bitbake
+# linux-stm32mp_%.bbappend
+
+SRC_URI:append:sandbox-stm32mp25 = " file://${LINUX_VERSION}/sandbox-kernel.config;subdir=fragments "
+
+KERNEL_CONFIG_FRAGMENTS:append:sandbox-stm32mp25 = " ${WORKDIR}/fragments/${LINUX_VERSION}/sandbox-kernel.config "
+```
+Now, I can fetch SRC_URI sources associated with linux-stm32mp recipe:
+```bash
+bitbake-getvar -r linux-stm32mp SRC_URI
+```
+and as can be seen below, the fragment is visible.
+![alt text](../assets/kernel_fragment.png)
+
+### Apply kernel configuration fragments + Validate fragment application order
+
+Last but not least, I can populate the fragment with a minimal starting config.
+```cfg
+# meta-sandbox-bsp/recipes-kernel/linux/linux-stm32mp/6.6/sandbox-kernel.config
+
+# CONFIG_NFS_FS is not set
+# CONFIG_CIFS is not set
+
+CONFIG_EXT4_FS=y
+CONFIG_VFAT_FS=y
+```
+Bake linux-stm32mp recipe:
+```bash
+bitbake linux-stm32mp
+```
+and verify that changes were affected:
+```bash
+cat build/tmp-glibc/work/sandbox_stm32mp25-oe-linux/linux-stm32mp/6.6.78-stm32mp-r2/build/.config | grep -E "CONFIG_EXT4_FS|CONFIG_VFAT_FS|CONFIG_CIFS|CONFIG_NFS_FS"
+```
+![alt text](../assets/applied_kernel_frags.png)
