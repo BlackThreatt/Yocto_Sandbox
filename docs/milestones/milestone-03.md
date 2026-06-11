@@ -326,3 +326,85 @@ and verify that changes were affected:
 cat build/tmp-glibc/work/sandbox_stm32mp25-oe-linux/linux-stm32mp/6.6.78-stm32mp-r2/build/.config | grep -E "CONFIG_EXT4_FS|CONFIG_VFAT_FS|CONFIG_CIFS|CONFIG_NFS_FS"
 ```
 ![alt text](../assets/applied_kernel_frags.png)
+
+### Remove unnecessary kernel options
+The goal here is not to blindly disable things but to audit what ST's defconfig pulls in that the sandbox image doesn't need, and suppress it cleanly via the fragment created.
+First, to get the full list of enabled options from the current build:
+
+```bash
+grep '^CONFIG_' build/tmp-glibc/work/sandbox_stm32mp25-oe-linux/linux-stm32mp/6.6.78-stm32mp-r2/build/.config | wc -l
+```
+![alt text](../assets/kernel_options_before.png)
+Now, I need to reduce that number by keeping necessary options. In my case, I want a minimal image with no display, wireless nor audio.
+```cfg
+# Wireless
+# CONFIG_WIRELESS is not set
+# CONFIG_CFG80211 is not set
+# CONFIG_MAC80211 is not set
+# CONFIG_RFKILL is not set
+
+# Bluetooth 
+# CONFIG_BT is not set
+
+# Audio
+# CONFIG_SOUND is not set
+# CONFIG_SND is not set
+
+# Unused filesystems
+# CONFIG_NFS_FS is not set
+# CONFIG_CIFS is not set
+# CONFIG_9P_FS is not set
+# CONFIG_NFSD is not set
+
+# Unused bus protocols
+# CONFIG_CAN is not set
+# CONFIG_CAN_DEV is not set
+```
+I checked the number of enabled options once again post bake and found that it was indeed reduced. Further reducing requires research as some options could break the kernel.
+![alt text](../assets/kernel_options_after.png)
+
+### Remove kernel image from root filesystem (postponed Until custom image is created)
+
+
+### Integrate base device tree
+
+The base DTB for the STM32MP257F-DK is built by linux-stm32mp already. The objective of this task is to make the BSP layer I created explicitly own and declare the DT selection and not rely on the ST layer doing it implicitly.
+To do this, inside machine conf, I explicitly declared it:
+
+```bitbake
+# meta-sandbox-bsp/conf/machine/sandbox-stm32mp25.conf
+
+STM32MP_DEVICETREE = "stm32mp257f-dk"
+KERNEL_DEVICETREE = "st/stm32mp257f-dk.dtb"
+```
+The st/ prefix is to specify that MP2 DTs are found under arch/arm64/boot/dts/st/ in the kernel tree, not the root DTS directory.
+
+### Validate DT selection via MACHINE
+
+Normally, setting `STM32MP_DEVICETREE` would overwrite the variable, but this wasn't the case.
+![alt text](../assets/stm32mp_devicetree_before.png)
+After inspection of the given output, I knew that to achieve what I wanted, I needed to set `EXTDT_USE_SUFFIX` to `1` and remove the overwrite so the value is not duplicated.
+![alt text](../assets/stm32mp_devicetree_after.png)
+Kernel device tree is correctly set.
+![alt text](../assets/kernel_devicetree.png)
+DTB is in deploy after build.
+![alt text](../assets/stm32mp25_dtb_deploy.png)
+
+### Create DT overlay recipe
+
+
+
+### Enable DT overlay loading in bootloader
+
+
+### Validate overlays load at boot
+
+
+### Create kernel module recipes (in-tree / out-of-tree)
+
+
+### Control module auto-loading
+
+
+### Remove unused drivers
+
